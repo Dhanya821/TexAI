@@ -1,0 +1,67 @@
+# -----------------------------
+# Python
+# -----------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Python environment variables
+.env
+
+# -----------------------------
+# ML / AI Models
+# -----------------------------
+*.pt
+*.pth
+*.onnx
+*.weights
+
+# YOLO / Training outputs
+runs/
+datasets/
+data/
+
+# -----------------------------
+# Logs
+# -----------------------------
+*.log
+
+# -----------------------------
+# OS Files
+# -----------------------------
+.DS_Store
+Thumbs.db
+
+# -----------------------------
+# IDE / Editor
+# -----------------------------
+.vscode/
+.idea/
+
+# -----------------------------
+# Docker
+# -----------------------------
+docker-compose.override.yml
+
+# -----------------------------
+# Build / Temporary
+# -----------------------------
+dist/
+build/
+tmp/
+temp/
+
+# -----------------------------
+# Jupyter
+# -----------------------------
+.ipynb_checkpoints/
+
+# -----------------------------
+# Node (future frontend)
+# -----------------------------
+node_modules/

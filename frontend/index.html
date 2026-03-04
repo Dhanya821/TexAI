@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FabricScan — Cloth Defect Detector</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0c0c0f;
+      --surface:   #13131a;
+      --border:    #232336;
+      --accent:    #e8ff47;
+      --accent2:   #ff6b35;
+      --text:      #f0f0f5;
+      --muted:     #6b6b88;
+      --hole:      #ff4444;
+      --stain:     #ff8c00;
+      --tear:      #ffd700;
+      --fray:      #da70d6;
+      --defect:    #00cfff;
+      --good:      #44ff88;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── GRID BACKGROUND ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(232,255,71,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(232,255,71,.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── HEADER ── */
+    header {
+      position: relative; z-index: 2;
+      padding: 28px 48px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800; font-size: 1.4rem; letter-spacing: -0.03em;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .logo-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 12px var(--accent);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.6; transform: scale(0.85); }
+    }
+    .badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem; letter-spacing: 0.1em;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 4px 10px; border-radius: 20px;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative; z-index: 2;
+      text-align: center;
+      padding: 64px 24px 40px;
+    }
+    .hero h1 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800; font-size: clamp(2.4rem, 6vw, 4.5rem);
+      line-height: 1.05; letter-spacing: -0.04em;
+      background: linear-gradient(135deg, #fff 30%, var(--accent) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      margin-top: 16px;
+      color: var(--muted); font-size: 1.05rem; font-weight: 300;
+      max-width: 480px; margin-inline: auto;
+    }
+
+    /* ── MAIN LAYOUT ── */
+    .container {
+      position: relative; z-index: 2;
+      max-width: 1100px; margin: 0 auto;
+      padding: 0 24px 80px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 768px) {
+      .container { grid-template-columns: 1fr; }
+      header { padding: 20px 24px; }
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .panel-header span {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700; font-size: 0.9rem; letter-spacing: 0.02em;
+    }
+    .panel-icon {
+      width: 28px; height: 28px;
+      background: rgba(232,255,71,0.1);
+      border-radius: 8px;
+      display: grid; place-items: center;
+      font-size: 14px;
+    }
+
+    /* ── UPLOAD ZONE ── */
+    #drop-zone {
+      margin: 24px;
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      min-height: 280px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 12px; cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative; overflow: hidden;
+    }
+    #drop-zone:hover, #drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(232,255,71,.04);
+    }
+    #drop-zone.drag-over { transform: scale(1.01); }
+    .drop-icon {
+      width: 56px; height: 56px;
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      display: grid; place-items: center;
+      font-size: 24px;
+      transition: border-color 0.2s;
+    }
+    #drop-zone:hover .drop-icon { border-color: var(--accent); }
+    .drop-text { font-size: 0.95rem; color: var(--muted); text-align: center; }
+    .drop-text strong { color: var(--text); display: block; font-size: 1rem; margin-bottom: 4px; }
+    .drop-subtext {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem; color: var(--muted); letter-spacing: 0.05em;
+    }
+    #file-input { display: none; }
+
+    /* ── PREVIEW IMAGE ── */
+    #preview-container { display: none; margin: 0 24px; }
+    #preview-container img {
+      width: 100%; border-radius: 10px;
+      border: 1px solid var(--border);
+      max-height: 300px; object-fit: cover;
+    }
+    .preview-meta {
+      margin-top: 10px;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem; color: var(--muted);
+      display: flex; gap: 16px;
+    }
+
+    /* ── ANALYZE BUTTON ── */
+    .btn-analyze {
+      display: block; width: calc(100% - 48px);
+      margin: 20px 24px;
+      padding: 14px;
+      background: var(--accent);
+      color: #0c0c0f;
+      border: none; border-radius: 10px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700; font-size: 0.95rem; letter-spacing: 0.03em;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-analyze:hover { background: #d4e840; transform: translateY(-1px); }
+    .btn-analyze:disabled {
+      opacity: 0.4; cursor: not-allowed; transform: none;
+    }
+    .btn-reset {
+      display: block; width: calc(100% - 48px);
+      margin: 0 24px 24px;
+      padding: 10px;
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border); border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-reset:hover { border-color: var(--muted); color: var(--text); }
+
+    /* ── SPINNER ── */
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(12,12,15,0.3);
+      border-top-color: #0c0c0f;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── RESULTS PANEL ── */
+    #results-panel .panel-body { padding: 24px; }
+    .empty-state {
+      text-align: center; padding: 60px 24px;
+      color: var(--muted);
+    }
+    .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .empty-state p { font-size: 0.9rem; }
+
+    /* ── ANNOTATED IMAGE ── */
+    #annotated-container { display: none; }
+    #annotated-container img {
+      width: 100%; border-radius: 10px;
+      border: 1px solid var(--border);
+      max-height: 300px; object-fit: cover;
+    }
+    .result-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem; letter-spacing: 0.08em;
+      color: var(--muted); margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+
+    /* ── CONDITION BADGE ── */
+    .condition-badge {
+      margin-top: 16px;
+      padding: 14px 18px;
+      border-radius: 10px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .condition-badge.good       { background: rgba(68,255,136,.08); border: 1px solid rgba(68,255,136,.2); }
+    .condition-badge.minor      { background: rgba(255,215,0,.08);  border: 1px solid rgba(255,215,0,.2); }
+    .condition-badge.moderate   { background: rgba(255,107,53,.08); border: 1px solid rgba(255,107,53,.2); }
+    .condition-badge.severe     { background: rgba(255,68,68,.08);  border: 1px solid rgba(255,68,68,.2); }
+    .cond-icon { font-size: 1.6rem; }
+    .cond-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700; font-size: 0.95rem;
+    }
+    .cond-sub { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── DEFECT LIST ── */
+    .defects-grid {
+      margin-top: 16px;
+      display: grid; gap: 10px;
+    }
+    .defect-card {
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex; align-items: center; gap: 12px;
+      animation: fadeUp 0.3s ease both;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .defect-color {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+    .defect-type {
+      font-family: 'Syne', sans-serif;
+      font-weight: 600; font-size: 0.85rem;
+      text-transform: capitalize; flex: 1;
+    }
+    .defect-conf {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+    }
+    .severity-chip {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem; letter-spacing: 0.06em;
+      padding: 2px 8px; border-radius: 20px;
+      text-transform: uppercase;
+    }
+    .sev-high     { background: rgba(255,68,68,.15);   color: #ff8888; }
+    .sev-medium   { background: rgba(255,140,0,.15);   color: #ffb347; }
+    .sev-low      { background: rgba(68,255,136,.15);  color: #44ff88; }
+
+    /* ── STATS ROW ── */
+    .stats-row {
+      margin-top: 16px;
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .stat-box {
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px;
+      text-align: center;
+    }
+    .stat-val {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800; font-size: 1.6rem;
+      line-height: 1;
+    }
+    .stat-key {
+      font-size: 0.72rem; color: var(--muted);
+      margin-top: 4px; letter-spacing: 0.04em;
+    }
+    .mode-tag {
+      margin-top: 16px; text-align: center;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.68rem; color: var(--muted);
+    }
+
+    /* ── ERROR ── */
+    .error-box {
+      background: rgba(255,68,68,.08);
+      border: 1px solid rgba(255,68,68,.25);
+      border-radius: 10px; padding: 16px 18px;
+      color: #ff8888; font-size: 0.88rem;
+    }
+
+    /* ── SERVER WARNING ── */
+    #server-warning {
+      display: none;
+      max-width: 1100px; margin: 0 auto 0;
+      padding: 0 24px;
+      position: relative; z-index: 2;
+    }
+    .warn-box {
+      background: rgba(255,140,0,.07);
+      border: 1px solid rgba(255,140,0,.2);
+      border-radius: 10px; padding: 12px 18px;
+      font-size: 0.82rem; color: #ffb347;
+      display: flex; gap: 10px; align-items: flex-start;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    FabricScan
+  </div>
+  <div class="badge">ML DEFECT DETECTION v1.0</div>
+</header>
+
+<div class="hero">
+  <h1>Cloth Defect<br/>Detector</h1>
+  <p>Upload a fabric photo — our ML model instantly detects holes, stains, tears, and fraying.</p>
+</div>
+
+<div id="server-warning">
+  <div class="warn-box">
+    ⚠️ <span>Backend not reachable at <strong>http://localhost:8000</strong>. Make sure the FastAPI server is running. See instructions below.</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ── LEFT: UPLOAD ── -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-icon">📤</div>
+      <span>Upload Fabric Image</span>
+    </div>
+
+    <div id="drop-zone" role="button" tabindex="0" aria-label="Upload area">
+      <div class="drop-icon">🧵</div>
+      <div class="drop-text">
+        <strong>Drop your image here</strong>
+        Click to browse or drag & drop
+      </div>
+      <div class="drop-subtext">JPG · PNG · WEBP · BMP — Max 20 MB</div>
+      <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/bmp" />
+    </div>
+
+    <div id="preview-container">
+      <div class="result-label">Preview</div>
+      <img id="preview-img" src="" alt="Preview" />
+      <div class="preview-meta">
+        <span id="preview-name">—</span>
+        <span id="preview-size">—</span>
+        <span id="preview-dims">—</span>
+      </div>
+    </div>
+
+    <button class="btn-analyze" id="analyze-btn" disabled>
+      <span id="btn-text">Analyze Fabric</span>
+      <span id="btn-spinner" style="display:none"><div class="spinner"></div></span>
+    </button>
+
+    <button class="btn-reset" id="reset-btn" style="display:none">
+      ↩ Start Over
+    </button>
+  </div>
+
+  <!-- ── RIGHT: RESULTS ── -->
+  <div class="panel" id="results-panel">
+    <div class="panel-header">
+      <div class="panel-icon">🔍</div>
+      <span>Analysis Results</span>
+    </div>
+
+    <div id="empty-state" class="empty-state">
+      <div class="empty-icon">🔬</div>
+      <p>Upload a cloth image and<br/>click Analyze to see results</p>
+    </div>
+
+    <div id="results-body" style="display:none; padding:24px;">
+      <div id="error-display" class="error-box" style="display:none;"></div>
+
+      <div id="annotated-container">
+        <div class="result-label">Annotated Output</div>
+        <img id="annotated-img" src="" alt="Annotated" />
+      </div>
+
+      <div id="condition-section"></div>
+
+      <div id="stats-section" class="stats-row"></div>
+
+      <div id="defects-section" class="defects-grid"></div>
+
+      <div id="mode-section" class="mode-tag"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const API = "http://localhost:8000";
+  const dropZone    = document.getElementById("drop-zone");
+  const fileInput   = document.getElementById("file-input");
+  const analyzeBtn  = document.getElementById("analyze-btn");
+  const resetBtn    = document.getElementById("reset-btn");
+  const btnText     = document.getElementById("btn-text");
+  const btnSpinner  = document.getElementById("btn-spinner");
+  const previewCont = document.getElementById("preview-container");
+  const previewImg  = document.getElementById("preview-img");
+  const previewName = document.getElementById("preview-name");
+  const previewSize = document.getElementById("preview-size");
+  const previewDims = document.getElementById("preview-dims");
+  const emptyState  = document.getElementById("empty-state");
+  const resultsBody = document.getElementById("results-body");
+  const errorDisplay= document.getElementById("error-display");
+
+  let selectedFile = null;
+
+  // ── Drag & Drop ──
+  dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+  dropZone.addEventListener("drop", e => {
+    e.preventDefault(); dropZone.classList.remove("drag-over");
+    const f = e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  });
+  dropZone.addEventListener("click", () => fileInput.click());
+  dropZone.addEventListener("keydown", e => { if (e.key === "Enter") fileInput.click(); });
+  fileInput.addEventListener("change", () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+  resetBtn.addEventListener("click", reset);
+
+  function handleFile(file) {
+    selectedFile = file;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        previewDims.textContent = `${img.naturalWidth}×${img.naturalHeight}px`;
+      };
+      img.src = ev.target.result;
+      previewImg.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+    previewName.textContent = file.name;
+    previewSize.textContent = (file.size / 1024).toFixed(1) + " KB";
+    dropZone.style.display   = "none";
+    previewCont.style.display = "block";
+    analyzeBtn.disabled = false;
+    resetBtn.style.display = "block";
+    clearResults();
+  }
+
+  function reset() {
+    selectedFile = null;
+    fileInput.value = "";
+    dropZone.style.display = "flex";
+    previewCont.style.display = "none";
+    analyzeBtn.disabled = true;
+    resetBtn.style.display = "none";
+    clearResults();
+  }
+
+  function clearResults() {
+    emptyState.style.display = "block";
+    resultsBody.style.display = "none";
+  }
+
+  // ── Analyze ──
+  analyzeBtn.addEventListener("click", async () => {
+    if (!selectedFile) return;
+    setLoading(true);
+    clearResults();
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+
+    try {
+      const res = await fetch(`${API}/analyze`, { method: "POST", body: formData });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || `Server error ${res.status}`);
+      }
+      const data = await res.json();
+      renderResults(data);
+    } catch (err) {
+      if (err.message.includes("fetch") || err.message.includes("Failed")) {
+        showError("Cannot reach the backend server. Make sure FastAPI is running on port 8000.\n\nRun: cd backend && uvicorn main:app --reload");
+        document.getElementById("server-warning").style.display = "block";
+      } else {
+        showError(err.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  function setLoading(on) {
+    analyzeBtn.disabled = on;
+    btnText.style.display    = on ? "none" : "inline";
+    btnSpinner.style.display = on ? "inline" : "none";
+    if (on) btnText.textContent = "Analyzing...";
+    else    btnText.textContent = "Analyze Fabric";
+  }
+
+  function showError(msg) {
+    emptyState.style.display = "none";
+    resultsBody.style.display = "block";
+    errorDisplay.style.display = "block";
+    errorDisplay.textContent = "❌ " + msg;
+  }
+
+  // ── Render Results ──
+  const defectColors = {
+    hole:   "var(--hole)",
+    stain:  "var(--stain)",
+    tear:   "var(--tear)",
+    fray:   "var(--fray)",
+    defect: "var(--defect)"
+  };
+
+  const conditions = {
+    good:            { icon:"✅", title:"Clean — No Defects",       sub:"Fabric appears in excellent condition.",         cls:"good" },
+    minor_damage:    { icon:"⚠️", title:"Minor Damage Detected",    sub:"Small defects found. May need attention.",       cls:"minor" },
+    moderate_damage: { icon:"🔶", title:"Moderate Damage",          sub:"Multiple defects detected. Repair recommended.", cls:"moderate" },
+    severe_damage:   { icon:"🔴", title:"Severe Damage",            sub:"Heavy defects. Fabric may need replacement.",    cls:"severe" }
+  };
+
+  function renderResults(data) {
+    emptyState.style.display = "none";
+    resultsBody.style.display = "block";
+    errorDisplay.style.display = "none";
+
+    const a = data.analysis;
+
+    // Annotated image
+    const annCont = document.getElementById("annotated-container");
+    const annImg  = document.getElementById("annotated-img");
+    annImg.src = "data:image/jpeg;base64," + data.annotated_image;
+    annCont.style.display = "block";
+
+    // Condition badge
+    const cdata = conditions[a.overall_condition] || conditions.good;
+    document.getElementById("condition-section").innerHTML = `
+      <div class="condition-badge ${cdata.cls}">
+        <div class="cond-icon">${cdata.icon}</div>
+        <div>
+          <div class="cond-title">${cdata.title}</div>
+          <div class="cond-sub">${cdata.sub}</div>
+        </div>
+      </div>
+    `;
+
+    // Stats
+    const avgConf = a.detections.length
+      ? (a.detections.reduce((s, d) => s + d.confidence, 0) / a.detections.length * 100).toFixed(0)
+      : "—";
+    document.getElementById("stats-section").innerHTML = `
+      <div class="stat-box">
+        <div class="stat-val" style="color:var(--accent)">${a.total_defects}</div>
+        <div class="stat-key">Defects Found</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" style="color:var(--accent2)">${Object.keys(a.defect_types).length}</div>
+        <div class="stat-key">Defect Types</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val">${avgConf}${avgConf !== "—" ? "%" : ""}</div>
+        <div class="stat-key">Avg Confidence</div>
+      </div>
+    `;
+
+    // Defect cards
+    const defSec = document.getElementById("defects-section");
+    if (a.detections.length === 0) {
+      defSec.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:.88rem;padding:12px;">No defects detected 🎉</div>`;
+    } else {
+      defSec.innerHTML = a.detections.map((d, i) => `
+        <div class="defect-card" style="animation-delay:${i * 0.06}s">
+          <div class="defect-color" style="background:${defectColors[d.type] || '#fff'}"></div>
+          <div class="defect-type">${d.type}</div>
+          <div class="defect-conf" style="color:${defectColors[d.type] || '#fff'}">${(d.confidence * 100).toFixed(1)}%</div>
+          <div class="severity-chip sev-${d.severity}">${d.severity}</div>
+        </div>
+      `).join("");
+    }
+
+    // Mode tag
+    document.getElementById("mode-section").textContent =
+      `Mode: ${a.mode === "model" ? "🤖 YOLOv8 Model" : "🔬 OpenCV Simulation"} · ${a.processing_time_sec}s`;
+  }
+
+  // ── Check server on load ──
+  fetch(`${API}/health`).catch(() => {
+    document.getElementById("server-warning").style.display = "block";
+  });
+</script>
+</body>
+</html>

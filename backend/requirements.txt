@@ -1,0 +1,10 @@
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+python-multipart==0.0.9
+opencv-python-headless==4.9.0.80
+Pillow==10.3.0
+numpy==1.26.4
+# For real model inference (optional - install when you have a trained model):
+# ultralytics==8.2.0
+# torch==2.3.0
+# torchvision==0.18.0
