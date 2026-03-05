@@ -28,6 +28,7 @@ venv/
 # ── Root level extras ──
 setup.py
 yolov8n.pt
+upload_model.py
 
 # ── OS ──
 .DS_Store

@@ -38,7 +38,7 @@ app.add_middleware(
 
 ROBOFLOW_API_KEY    = "HMI2IUb0vkpOuClaVqOx"
 ROBOFLOW_WORKSPACE  = "yugass-workspace"
-ROBOFLOW_WORKFLOW   = "custom-workflow"
+ROBOFLOW_WORKFLOW   = "cloth-defects"
 
 CLIENT = None
 
