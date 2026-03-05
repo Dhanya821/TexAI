@@ -1,67 +1,38 @@
-# -----------------------------
-# Python
-# -----------------------------
+# ── Python cache ──
 __pycache__/
 *.py[cod]
-*$py.class
+*.pyo
 
-# Virtual Environment
-venv/
-env/
-ENV/
+# ── Everything in backend EXCEPT main.py ──
+backend/augment.py
+backend/train_model.py
+backend/Dockerfile
 
-# Python environment variables
-.env
+# ── Datasets & training runs ──
+datasets/
+runs/
 
-# -----------------------------
-# ML / AI Models
-# -----------------------------
+# ── ML model weights ──
 *.pt
 *.pth
 *.onnx
 *.weights
+models/
 
-# YOLO / Training outputs
-runs/
-datasets/
-data/
+# ── Virtual environment ──
+venv/
 
-# -----------------------------
-# Logs
-# -----------------------------
-*.log
+# ── VS Code ──
+.vscode/
 
-# -----------------------------
-# OS Files
-# -----------------------------
+# ── Root level extras ──
+setup.py
+Readme.md
+yolov8n.pt
+
+# ── OS ──
 .DS_Store
 Thumbs.db
 
-# -----------------------------
-# IDE / Editor
-# -----------------------------
-.vscode/
-.idea/
-
-# -----------------------------
-# Docker
-# -----------------------------
-docker-compose.override.yml
-
-# -----------------------------
-# Build / Temporary
-# -----------------------------
-dist/
-build/
-tmp/
-temp/
-
-# -----------------------------
-# Jupyter
-# -----------------------------
-.ipynb_checkpoints/
-
-# -----------------------------
-# Node (future frontend)
-# -----------------------------
-node_modules/
+# ── Logs ──
+*.log
