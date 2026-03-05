@@ -27,7 +27,6 @@ venv/
 
 # ── Root level extras ──
 setup.py
-Readme.md
 yolov8n.pt
 
 # ── OS ──
